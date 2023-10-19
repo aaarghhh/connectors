@@ -47,7 +47,7 @@
         "@timestamp": {
           "type": "date"
         },
-        "threatintel": {
+        "threat": {
           "properties": {
             "indicator": {
               "properties": {

@@ -16,20 +16,20 @@ from .utils import remove_nones
 logger = getLogger(LOGGER_NAME)
 
 entity_field_mapping = {
-    "id": "threatintel.opencti.internal_id",
-    "valid_from": "threatintel.opencti.valid_from",
-    "valid_until": "threatintel.opencti.valid_until",
-    "x_opencti_detection": "threatintel.opencti.enable_detection",
-    "pattern": "threatintel.opencti.original_pattern",
-    "pattern_type": "threatintel.opencti.pattern_type",
-    "created_at": "threatintel.opencti.created_at",
-    "updated_at": "threatintel.opencti.updated_at",
+    "id": "threat.opencti.internal_id",
+    "valid_from": "threat.opencti.valid_from",
+    "valid_until": "threat.opencti.valid_until",
+    "x_opencti_detection": "threat.opencti.enable_detection",
+    "pattern": "threat.opencti.original_pattern",
+    "pattern_type": "threat.opencti.pattern_type",
+    "created_at": "threat.opencti.created_at",
+    "updated_at": "threat.opencti.updated_at",
     "x_opencti_score": ["risk_score", "risk_score_norm"],
-    "confidence": ["threatintel.confidence", "threatintel.confidence_norm"],
-    "x_mitre_platforms": "threatintel.opencti.mitre.platforms",
-    "standard_id": "threatintel.stix.id",
-    "revoked": "threatintel.opencti.revoked",
-    "description": "threatintel.indicator.description",
+    "confidence": ["threat.confidence", "threat.confidence_norm"],
+    "x_mitre_platforms": "threat.opencti.mitre.platforms",
+    "standard_id": "threat.stix.id",
+    "revoked": "threat.opencti.revoked",
+    "description": "threat.indicator.description",
 }
 
 
@@ -306,7 +306,7 @@ class IntelManager(object):
                         _indicator: dict = self._create_ecs_indicator_stix(entity)
                         if _indicator == {}:
                             return {}
-                        _document["threatintel.indicator"] = _indicator
+                        _document["threat.indicator"] = _indicator
                         if entity.get("killChainPhases", None):
                             phases = []
                             for phase in sorted(
@@ -329,7 +329,7 @@ class IntelManager(object):
                                 )
 
                             _document.setdefault(
-                                "threatintel.opencti.killchain_phases", phases
+                                "threat.opencti.killchain_phases", phases
                             )
                     else:
                         logger.warning(
@@ -348,7 +348,7 @@ class IntelManager(object):
                         except KeyError as err:
                             logger.error(f"Unable to find field mapping for {k}", err)
 
-                    _document["threatintel.opencti.updated_at"] = update_time
+                    _document["threat.opencti.updated_at"] = update_time
 
                     #  This scrubs the Cut object and returns a dict
                     _document = remove_nones(_document)
@@ -382,9 +382,9 @@ class IntelManager(object):
                 "kind": "enrichment",
                 "category": "threat",
                 "type": "indicator",
-                "dataset": "threatintel.opencti",
+                "dataset": "threat.opencti",
             },
-            "threatintel": {},
+            "threat": {},
         }
 
         if len(entity.get("externalReferences", [])) > 0:
@@ -410,10 +410,10 @@ class IntelManager(object):
         _document["event"][
             "risk_score_norm"
         ] = OpenCTIConnectorHelper.get_attribute_in_extension("score", entity)
-        _document["threatintel"]["confidence"] = entity.get("confidence", None)
-        _document["threatintel"]["confidence_norm"] = entity.get("confidence", None)
+        _document["threat"]["confidence"] = entity.get("confidence", None)
+        _document["threat"]["confidence_norm"] = entity.get("confidence", None)
 
-        _document["threatintel"]["opencti"] = {
+        _document["threat"]["opencti"] = {
             "internal_id": entity.get("id", None),
             "valid_from": entity.get("valid_from", None),
             "valid_until": entity.get("valid_until", None),
@@ -446,10 +446,10 @@ class IntelManager(object):
                     }
                 )
 
-            _document["threatintel"]["opencti"]["killchain_phases"] = phases
+            _document["threat"]["opencti"]["killchain_phases"] = phases
 
         if OpenCTIConnectorHelper.get_attribute_in_mitre_extension("platforms", entity):
-            _document["threatintel"]["opencti"]["mitre"] = {
+            _document["threat"]["opencti"]["mitre"] = {
                 "platforms": OpenCTIConnectorHelper.get_attribute_in_mitre_extension(
                     "platforms", entity
                 )
@@ -460,8 +460,8 @@ class IntelManager(object):
             if _indicator == {}:
                 return {}
 
-            _document["threatintel"]["stix"] = {"id": entity.get("standard_id")}
-            _document["threatintel"]["indicator"] = _indicator
+            _document["threat"]["stix"] = {"id": entity.get("standard_id")}
+            _document["threat"]["indicator"] = _indicator
 
         else:
             logger.warning(
