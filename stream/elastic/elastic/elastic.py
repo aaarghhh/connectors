@@ -31,6 +31,8 @@ class ElasticConnector:
             or self.helper.connect_live_stream_id == "ChangeMe"
         ):
             raise ValueError("Missing Live Stream ID")
+
+
         self.config = Cut(config)
         # Get the external URL as configured in OpenCTI Settings page
         query = """

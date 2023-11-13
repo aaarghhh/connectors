@@ -15,25 +15,10 @@ from .utils import remove_nones
 
 logger = getLogger(LOGGER_NAME)
 
-entity_field_mapping = {
-    "id": "threat.opencti.internal_id",
-    "valid_from": "threat.opencti.valid_from",
-    "valid_until": "threat.opencti.valid_until",
-    "x_opencti_detection": "threat.opencti.enable_detection",
-    "pattern": "threat.opencti.original_pattern",
-    "pattern_type": "threat.opencti.pattern_type",
-    "created_at": "threat.opencti.created_at",
-    "updated_at": "threat.opencti.updated_at",
-    "x_opencti_score": ["risk_score", "risk_score_norm"],
-    "confidence": ["threat.confidence", "threat.confidence_norm"],
-    "x_mitre_platforms": "threat.opencti.mitre.platforms",
-    "standard_id": "threat.stix.id",
-    "revoked": "threat.opencti.revoked",
-    "description": "threat.indicator.description",
-}
 
 
 class StixManager(object):
+
     def __init__(
         self,
         helper: OpenCTIConnectorHelper,
@@ -48,7 +33,6 @@ class StixManager(object):
         self.idx: str = self.config.get("output.elasticsearch.index")
         self.idx_pattern: str = self.config.get("setup.template.pattern")
         self.pattern: re.Pattern = re.compile(RE_DATEMATH)
-
         self._setup_elasticsearch_index()
 
     def _setup_elasticsearch_index(self) -> None:
@@ -113,6 +97,7 @@ class StixManager(object):
 
 
 class IntelManager(object):
+
     def __init__(
         self,
         helper: OpenCTIConnectorHelper,
@@ -128,6 +113,31 @@ class IntelManager(object):
         self.idx: str = self.config.get("output.elasticsearch.index")
         self.idx_pattern: str = self.config.get("setup.template.pattern")
         self.write_idx: str = self.config.get("output.elasticsearch.index")
+
+        self.elastic_version: str =  self.config.get("output.elasticsearch.version")
+        ## define the variable for the index name
+        if self.elastic_version == "7":
+            self.threatintel_key: str = "threatintel"
+        else:
+            self.threatintel_key: str = "threat"
+
+        self.entity_field_mapping = {
+            "id": self.threatintel_key+".opencti.internal_id",
+            "valid_from": self.threatintel_key+".opencti.valid_from",
+            "valid_until": self.threatintel_key+".opencti.valid_until",
+            "x_opencti_detection": self.threatintel_key+".opencti.enable_detection",
+            "pattern": self.threatintel_key+".opencti.original_pattern",
+            "pattern_type": self.threatintel_key+".opencti.pattern_type",
+            "created_at": self.threatintel_key+".opencti.created_at",
+            "updated_at": self.threatintel_key+".opencti.updated_at",
+            "x_opencti_score": ["risk_score", "risk_score_norm"],
+            "confidence": [self.threatintel_key+".confidence", self.threatintel_key+".confidence_norm"],
+            "x_mitre_platforms": self.threatintel_key+".opencti.mitre.platforms",
+            "standard_id": self.threatintel_key+".stix.id",
+            "revoked": self.threatintel_key+".opencti.revoked",
+            "description": self.threatintel_key+".indicator.description",
+        }
+
 
         if self.config.get("setup.ilm.enabled", False) is True:
             self.write_idx = self.config.get("setup.ilm.rollover_alias", "opencti")
@@ -176,7 +186,7 @@ class IntelManager(object):
             _template_name: str = self.config.get("setup.template.name", "opencti")
 
             with open(
-                os.path.join(self.datadir, "ecs-indicator-index-template.json")
+                os.path.join(self.datadir, "ecs-indicator-index-templatev{}.json".format(self.elastic_version))
             ) as f:
                 tpl = Template(f.read())
                 content = tpl.substitute(values)
@@ -201,6 +211,8 @@ class IntelManager(object):
                 _initial_idx = f"{_alias}-{_ilm_pattern}"
                 logger.info(f"Using alias '{_alias}'")
             else:
+                ## fix for unreferenced alias
+                _alias = "opencti"
                 _initial_idx = self.config.get(
                     "output.elasticsearch.index", "opencti-{now/d}"
                 )
@@ -306,7 +318,7 @@ class IntelManager(object):
                         _indicator: dict = self._create_ecs_indicator_stix(entity)
                         if _indicator == {}:
                             return {}
-                        _document["threat.indicator"] = _indicator
+                        _document[self.threatintel_key+".indicator"] = _indicator
                         if entity.get("killChainPhases", None):
                             phases = []
                             for phase in sorted(
@@ -329,7 +341,7 @@ class IntelManager(object):
                                 )
 
                             _document.setdefault(
-                                "threat.opencti.killchain_phases", phases
+                                self.threatintel_key+".opencti.killchain_phases", phases
                             )
                     else:
                         logger.warning(
@@ -339,16 +351,16 @@ class IntelManager(object):
 
                     for k, v in data["x_data_update"].get("replace", {}).items():
                         logger.debug(
-                            f"Updating field {k} -> {entity_field_mapping.get(k)} to {v}"
+                            f"Updating field {k} -> {self.entity_field_mapping.get(k)} to {v}"
                         )
                         try:
-                            _field = entity_field_mapping.get(k)
+                            _field = self.entity_field_mapping.get(k)
                             _document.setdefault(_field, v)
                             _document[_field] = v
                         except KeyError as err:
                             logger.error(f"Unable to find field mapping for {k}", err)
 
-                    _document["threat.opencti.updated_at"] = update_time
+                    _document[self.threatintel_key+".opencti.updated_at"] = update_time
 
                     #  This scrubs the Cut object and returns a dict
                     _document = remove_nones(_document)
@@ -382,9 +394,9 @@ class IntelManager(object):
                 "kind": "enrichment",
                 "category": "threat",
                 "type": "indicator",
-                "dataset": "threat.opencti",
+                "dataset": self.threatintel_key+".opencti",
             },
-            "threat": {},
+            self.threatintel_key: {},
         }
 
         if len(entity.get("externalReferences", [])) > 0:
@@ -410,10 +422,10 @@ class IntelManager(object):
         _document["event"][
             "risk_score_norm"
         ] = OpenCTIConnectorHelper.get_attribute_in_extension("score", entity)
-        _document["threat"]["confidence"] = entity.get("confidence", None)
-        _document["threat"]["confidence_norm"] = entity.get("confidence", None)
+        _document[self.threatintel_key]["confidence"] = entity.get("confidence", None)
+        _document[self.threatintel_key]["confidence_norm"] = entity.get("confidence", None)
 
-        _document["threat"]["opencti"] = {
+        _document[self.threatintel_key]["opencti"] = {
             "internal_id": entity.get("id", None),
             "valid_from": entity.get("valid_from", None),
             "valid_until": entity.get("valid_until", None),
@@ -446,10 +458,10 @@ class IntelManager(object):
                     }
                 )
 
-            _document["threat"]["opencti"]["killchain_phases"] = phases
+            _document[self.threatintel_key]["opencti"]["killchain_phases"] = phases
 
         if OpenCTIConnectorHelper.get_attribute_in_mitre_extension("platforms", entity):
-            _document["threat"]["opencti"]["mitre"] = {
+            _document[self.threatintel_key]["opencti"]["mitre"] = {
                 "platforms": OpenCTIConnectorHelper.get_attribute_in_mitre_extension(
                     "platforms", entity
                 )
@@ -460,8 +472,8 @@ class IntelManager(object):
             if _indicator == {}:
                 return {}
 
-            _document["threat"]["stix"] = {"id": entity.get("standard_id")}
-            _document["threat"]["indicator"] = _indicator
+            _document[self.threatintel_key]["stix"] = {"id": entity.get("standard_id")}
+            _document[self.threatintel_key]["indicator"] = _indicator
 
         else:
             logger.warning(

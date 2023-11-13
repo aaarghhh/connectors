@@ -50,7 +50,8 @@ output:
     # Set the following flag to "true" if the elasticsearch access do not have cluster 
     # "monitor" privileges
     #reduced_privileges: false 
-  
+    # Set the version of the Elasticsearch cluster 7 or 8.
+    version: 7
   # store STIX object labels with the indicators in elasticsearch if in 'ecs' or 'ecs_no_signals' mode. 
   include_labels: False
 

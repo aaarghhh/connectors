@@ -94,6 +94,7 @@ def __process_config(argv={}, config={}) -> dict:
                 "reduced_privileges": os.environ.get(
                     "ELASTICSEARCH_REDUCED_PRIVILEGES", None
                 ),
+                "version": os.environ.get("ELASTICSEARCH_VERSION", None),
             }
         },
         "elastic": {
@@ -109,6 +110,10 @@ def __process_config(argv={}, config={}) -> dict:
 
     _env = remove_nones(_env)
     _conf: dict = dict_merge(_conf, _env)
+
+    # Set defaults value for Elasticsearch version
+    if "version" not in _conf["output"]["elasticsearch"].keys() or _conf["output"]["elasticsearch"]["version"] is None:
+        _conf["output"]["elasticsearch"]["version"] = "7"
 
     logger.debug(f"Merged ENV config:\n {json.dumps(_conf)}")
 
@@ -203,11 +208,11 @@ def main() -> None:
     datadir = __DATA_DIR__
     if "--data-dir" in arguments and arguments["--data-dir"] is not None:
         if not os.path.exists(arguments["--data-dir"]):
-            logger.warn(
+            logger.warning(
                 f"""Data directory '{arguments["--data-dir"]}' does not exist."""
             )
         elif not os.path.isdir(arguments["--data-dir"]):
-            logger.warn(
+            logger.warning(
                 f"""'{arguments["--data-dir"]}' is not a valid directory for --data-dir"""
             )
         else:
