@@ -19,13 +19,13 @@ The connector adds data for the following OpenCTI observable/indicator types:
 * domain-name
 * url
 
-The connectors adds the following Entities:
+The connector adds the following Entities:
 * Malware
 ## Installation
 
 ### Requirements
 
-- OpenCTI Platform >= 5.11.4
+- OpenCTI Platform >= 5.11.13
 
 ### Configuration
 
