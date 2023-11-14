@@ -1,13 +1,11 @@
 {
   "index_patterns": [
-    "${pattern}"
+    "opencti-indicators-*"
   ],
   "template": {
     "settings": {
       "number_of_shards": 1,
-      "number_of_replicas": 1,
-      "index.lifecycle.name": "${policy_name}",
-      "index.lifecycle.rollover_alias": "${rollover_alias}"
+      "number_of_replicas": 1
     },
     "aliases": {
       "${rollover_alias}": {}
@@ -350,50 +348,54 @@
         },
         "opencti": {
           "properties": {
-            "internal_id": {
-              "ignore_above": 1024,
-              "type": "keyword"
-            },
-            "valid_from": {
-              "type": "date"
-            },
-            "valid_until": {
-              "type": "date"
-            },
-            "enable_detection": {
-              "type": "boolean"
-            },
-            "risk_score": {
-              "type": "long"
-            },
-            "confidence": {
-              "type": "long"
-            },
-            "original_pattern": {
-              "ignore_above": 1024,
-              "type": "keyword"
-            },
-            "pattern_type": {
-              "ignore_above": 1024,
-              "type": "keyword"
-            },
-            "killchain_phases": {
-              "type": "nested",
+            "indicator": {
               "properties": {
-                "killchain_name": {
-                  "type": "keyword",
-                  "ignore_above": 1024
+                "internal_id": {
+                  "ignore_above": 1024,
+                  "type": "keyword"
                 },
-                "phase_name": {
-                  "type": "keyword",
-                  "ignore_above": 1024
+                "valid_from": {
+                  "type": "date"
                 },
-                "stix_id": {
-                  "type": "keyword",
-                  "ignore_above": 1024
+                "valid_until": {
+                  "type": "date"
                 },
-                "opencti_phase_order": {
+                "enable_detection": {
+                  "type": "boolean"
+                },
+                "risk_score": {
                   "type": "long"
+                },
+                "confidence": {
+                  "type": "long"
+                },
+                "original_pattern": {
+                  "ignore_above": 1024,
+                  "type": "keyword"
+                },
+                "pattern_type": {
+                  "ignore_above": 1024,
+                  "type": "keyword"
+                },
+                "killchain_phases": {
+                  "type": "nested",
+                  "properties": {
+                    "killchain_name": {
+                      "type": "keyword",
+                      "ignore_above": 1024
+                    },
+                    "phase_name": {
+                      "type": "keyword",
+                      "ignore_above": 1024
+                    },
+                    "stix_id": {
+                      "type": "keyword",
+                      "ignore_above": 1024
+                    },
+                    "opencti_phase_order": {
+                      "type": "long"
+                    }
+                  }
                 }
               }
             }

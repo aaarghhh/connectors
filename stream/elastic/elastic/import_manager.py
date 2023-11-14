@@ -96,7 +96,49 @@ class StixManager(object):
         return
 
 
+
+
+
+
 class IntelManager(object):
+
+    @staticmethod
+    def create_mapping(version: str) -> dict:
+        if version == "7":
+            return {
+                "id": "threatintel.opencti.internal_id",
+                "valid_from": "threatintel.opencti.valid_from",
+                "valid_until": "threatintel.opencti.valid_until",
+                "x_opencti_detection": "threatintel.opencti.enable_detection",
+                "pattern": "threatintel.opencti.original_pattern",
+                "pattern_type": "threatintel.opencti.pattern_type",
+                "created_at": "threatintel.opencti.created_at",
+                "updated_at": "threatintel.opencti.updated_at",
+                "x_opencti_score": ["threatintel.opencti.risk_score", "threatintel.opencti.risk_score_norm"],
+                "confidence": ["threatintel.confidence", "threatintel.confidence_norm"],
+                "x_mitre_platforms": "threatintel.opencti.mitre.platforms",
+                "standard_id": "threatintel.stix.id",
+                "revoked": "threatintel.opencti.revoked",
+                "description": "threatintel.indicator.description"
+            }
+        else:
+            return {
+                "id": "opencti.indicator.internal_id",
+                "valid_from": "opencti.indicator.valid_from",
+                "valid_until": "opencti.indicator.valid_until",
+                "x_opencti_detection": "opencti.indicator.enable_detection",
+                "pattern": "opencti.indicator.original_pattern",
+                "pattern_type": "opencti.indicator.pattern_type",
+                "created_at": "opencti.indicator.created_at",
+                "updated_at": "threat.indicator.modified_at",
+                "x_opencti_score": ["event.risk_score", "opencti.indicator.risk_score_norm"],
+                "confidence": ["threat.indicator.confidence", "opencti.indicator.confidence_norm"],
+                "x_mitre_platforms": "threatintel.opencti.mitre.platforms",
+                "standard_id": "opencti.indicator.stix.id",
+                "revoked": "opencti.indicator.revoked",
+                "description": "threat.indicator.description"
+            }
+
 
     def __init__(
         self,
@@ -116,6 +158,7 @@ class IntelManager(object):
 
         self.elastic_version: str =  self.config.get("output.elasticsearch.version")
         ## define the variable for the index name
+
         self.threatintel_key: str = None
         self.threatintel_key_entity: str = ""
 
@@ -125,29 +168,11 @@ class IntelManager(object):
         else:
             self.threatintel_key: str = "threat"
 
-        self.entity_field_mapping = {
-            "id": self.threatintel_key_entity+"opencti.internal_id",
-            "valid_from": self.threatintel_key_entity+"opencti.valid_from",
-            "valid_until": self.threatintel_key_entity+"opencti.valid_until",
-            "x_opencti_detection": self.threatintel_key_entity+"opencti.enable_detection",
-            "pattern": self.threatintel_key_entity+"opencti.original_pattern",
-            "pattern_type": self.threatintel_key_entity+"opencti.pattern_type",
-            "created_at": self.threatintel_key_entity+"opencti.created_at",
-            "updated_at": self.threatintel_key_entity+"opencti.updated_at",
-            "x_opencti_score": ["risk_score", "risk_score_norm"],
-            "confidence": [self.threatintel_key_entity+"confidence", self.threatintel_key_entity+"confidence_norm"],
-            "x_mitre_platforms": self.threatintel_key_entity+"opencti.mitre.platforms",
-            "standard_id": self.threatintel_key_entity+"stix.id",
-            "revoked": self.threatintel_key_entity+"opencti.revoked",
-            "description": self.threatintel_key_entity+"indicator.description",
-        }
-
+        self.entity_field_mapping = IntelManager.create_mapping(self.elastic_version)
 
         if self.config.get("setup.ilm.enabled", False) is True:
             self.write_idx = self.config.get("setup.ilm.rollover_alias", "opencti")
-
         self.pattern = re.compile(RE_DATEMATH)
-
         self._setup_elasticsearch_index()
 
     def _setup_elasticsearch_index(self) -> None:
@@ -277,6 +302,7 @@ class IntelManager(object):
         _result: dict = {}
         _document: Cut = {}
 
+        ### only indicators are supported
         if data["type"] != "indicator":
             logger.error(
                 f"Data type unsupported: {data['type']}. Only 'indicators are currently supported."
@@ -402,6 +428,11 @@ class IntelManager(object):
             },
             self.threatintel_key: {},
         }
+
+        ## upgrading del dictionary https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html
+        if self.elastic_version == "8":
+            _document["tgas"] = ["threatintel", "opencti"]
+            _document["threat"] = {"feed": {"name": "OpenCTI"}}
 
         if len(entity.get("externalReferences", [])) > 0:
             _document["event"]["reference"] = [
