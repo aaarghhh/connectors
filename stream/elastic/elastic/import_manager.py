@@ -116,26 +116,30 @@ class IntelManager(object):
 
         self.elastic_version: str =  self.config.get("output.elasticsearch.version")
         ## define the variable for the index name
+        self.threatintel_key: str = None
+        self.threatintel_key_entity: str = ""
+
         if self.elastic_version == "7":
             self.threatintel_key: str = "threatintel"
+            self.threatintel_key_entity: str = "threatintel."
         else:
             self.threatintel_key: str = "threat"
 
         self.entity_field_mapping = {
-            "id": self.threatintel_key+".opencti.internal_id",
-            "valid_from": self.threatintel_key+".opencti.valid_from",
-            "valid_until": self.threatintel_key+".opencti.valid_until",
-            "x_opencti_detection": self.threatintel_key+".opencti.enable_detection",
-            "pattern": self.threatintel_key+".opencti.original_pattern",
-            "pattern_type": self.threatintel_key+".opencti.pattern_type",
-            "created_at": self.threatintel_key+".opencti.created_at",
-            "updated_at": self.threatintel_key+".opencti.updated_at",
+            "id": self.threatintel_key_entity+"opencti.internal_id",
+            "valid_from": self.threatintel_key_entity+"opencti.valid_from",
+            "valid_until": self.threatintel_key_entity+"opencti.valid_until",
+            "x_opencti_detection": self.threatintel_key_entity+"opencti.enable_detection",
+            "pattern": self.threatintel_key_entity+"opencti.original_pattern",
+            "pattern_type": self.threatintel_key_entity+"opencti.pattern_type",
+            "created_at": self.threatintel_key_entity+"opencti.created_at",
+            "updated_at": self.threatintel_key_entity+"opencti.updated_at",
             "x_opencti_score": ["risk_score", "risk_score_norm"],
-            "confidence": [self.threatintel_key+".confidence", self.threatintel_key+".confidence_norm"],
-            "x_mitre_platforms": self.threatintel_key+".opencti.mitre.platforms",
-            "standard_id": self.threatintel_key+".stix.id",
-            "revoked": self.threatintel_key+".opencti.revoked",
-            "description": self.threatintel_key+".indicator.description",
+            "confidence": [self.threatintel_key_entity+"confidence", self.threatintel_key_entity+"confidence_norm"],
+            "x_mitre_platforms": self.threatintel_key_entity+"opencti.mitre.platforms",
+            "standard_id": self.threatintel_key_entity+"stix.id",
+            "revoked": self.threatintel_key_entity+"opencti.revoked",
+            "description": self.threatintel_key_entity+"indicator.description",
         }
 
 
@@ -341,7 +345,7 @@ class IntelManager(object):
                                 )
 
                             _document.setdefault(
-                                self.threatintel_key+".opencti.killchain_phases", phases
+                                self.threatintel_key_entity+"opencti.killchain_phases", phases
                             )
                     else:
                         logger.warning(
@@ -360,7 +364,7 @@ class IntelManager(object):
                         except KeyError as err:
                             logger.error(f"Unable to find field mapping for {k}", err)
 
-                    _document[self.threatintel_key+".opencti.updated_at"] = update_time
+                    _document[self.threatintel_key_entity+"opencti.updated_at"] = update_time
 
                     #  This scrubs the Cut object and returns a dict
                     _document = remove_nones(_document)
@@ -425,19 +429,36 @@ class IntelManager(object):
         _document[self.threatintel_key]["confidence"] = entity.get("confidence", None)
         _document[self.threatintel_key]["confidence_norm"] = entity.get("confidence", None)
 
-        _document[self.threatintel_key]["opencti"] = {
-            "internal_id": entity.get("id", None),
-            "valid_from": entity.get("valid_from", None),
-            "valid_until": entity.get("valid_until", None),
-            "enable_detection": OpenCTIConnectorHelper.get_attribute_in_extension(
-                "detection", entity
-            ),
-            "original_pattern": entity.get("pattern", None),
-            "pattern_type": entity.get("pattern_type", None),
-            "created_at": entity.get("created_at", None),
-            "updated_at": entity.get("created_at", None),
-            "revoked": entity.get("revoked", None),
-        }
+
+        if self.elastic_version == "7":
+            _document[self.threatintel_key]["opencti"] = {
+                "internal_id": entity.get("id", None),
+                "valid_from": entity.get("valid_from", None),
+                "valid_until": entity.get("valid_until", None),
+                "enable_detection": OpenCTIConnectorHelper.get_attribute_in_extension(
+                    "detection", entity
+                ),
+                "original_pattern": entity.get("pattern", None),
+                "pattern_type": entity.get("pattern_type", None),
+                "created_at": entity.get("created_at", None),
+                "updated_at": entity.get("created_at", None),
+                "revoked": entity.get("revoked", None),
+            }
+        else:
+            _document["opencti"] = {
+                "internal_id": entity.get("id", None),
+                "valid_from": entity.get("valid_from", None),
+                "valid_until": entity.get("valid_until", None),
+                "enable_detection": OpenCTIConnectorHelper.get_attribute_in_extension(
+                    "detection", entity
+                ),
+                "original_pattern": entity.get("pattern", None),
+                "pattern_type": entity.get("pattern_type", None),
+                "created_at": entity.get("created_at", None),
+                "updated_at": entity.get("created_at", None),
+                "revoked": entity.get("revoked", None),
+            }
+
 
         if entity.get("killChainPhases", None):
             phases = []
@@ -457,15 +478,24 @@ class IntelManager(object):
                         ),
                     }
                 )
-
-            _document[self.threatintel_key]["opencti"]["killchain_phases"] = phases
+            if self.elastic_version == "7":
+                _document[self.threatintel_key]["opencti"]["killchain_phases"] = phases
+            else:
+                _document["opencti"]["killchain_phases"] = phases
 
         if OpenCTIConnectorHelper.get_attribute_in_mitre_extension("platforms", entity):
-            _document[self.threatintel_key]["opencti"]["mitre"] = {
-                "platforms": OpenCTIConnectorHelper.get_attribute_in_mitre_extension(
-                    "platforms", entity
-                )
-            }
+            if self.elastic_version == "7":
+                _document[self.threatintel_key]["opencti"]["mitre"] = {
+                    "platforms": OpenCTIConnectorHelper.get_attribute_in_mitre_extension(
+                        "platforms", entity
+                    )
+                }
+            else:
+                _document["opencti"]["mitre"] = {
+                    "platforms": OpenCTIConnectorHelper.get_attribute_in_mitre_extension(
+                        "platforms", entity
+                    )
+                }
 
         if entity["pattern_type"] == "stix":
             _indicator: dict = self._create_ecs_indicator_stix(entity)
