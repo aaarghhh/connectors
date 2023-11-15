@@ -390,7 +390,10 @@ class IntelManager(object):
                         except KeyError as err:
                             logger.error(f"Unable to find field mapping for {k}", err)
 
-                    _document[self.threatintel_key_entity+"opencti.updated_at"] = update_time
+                    if self.elastic_version == "7":
+                        _document["threatintel.opencti.updated_at"] = update_time
+                    else:
+                        _document["threat.indicator.modified_at"] = update_time
 
                     #  This scrubs the Cut object and returns a dict
                     _document = remove_nones(_document)
@@ -424,14 +427,14 @@ class IntelManager(object):
                 "kind": "enrichment",
                 "category": "threat",
                 "type": "indicator",
-                "dataset": self.threatintel_key+".opencti",
+                "dataset": "threatintel.opencti",
             },
             self.threatintel_key: {},
         }
 
         ## upgrading del dictionary https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html
         if self.elastic_version == "8":
-            _document["tgas"] = ["threatintel", "opencti"]
+            _document["tags"] = ["threatintel", "opencti"]
             _document["threat"] = {"feed": {"name": "OpenCTI"}}
 
         if len(entity.get("externalReferences", [])) > 0:
@@ -462,7 +465,7 @@ class IntelManager(object):
 
 
         if self.elastic_version == "7":
-            _document[self.threatintel_key]["opencti"] = {
+            _document["threatintel"]["opencti"] = {
                 "internal_id": entity.get("id", None),
                 "valid_from": entity.get("valid_from", None),
                 "valid_until": entity.get("valid_until", None),
@@ -476,7 +479,7 @@ class IntelManager(object):
                 "revoked": entity.get("revoked", None),
             }
         else:
-            _document["opencti"] = {
+            _document["opencti"]["indicator"] = {
                 "internal_id": entity.get("id", None),
                 "valid_from": entity.get("valid_from", None),
                 "valid_until": entity.get("valid_until", None),
@@ -486,10 +489,10 @@ class IntelManager(object):
                 "original_pattern": entity.get("pattern", None),
                 "pattern_type": entity.get("pattern_type", None),
                 "created_at": entity.get("created_at", None),
-                "updated_at": entity.get("created_at", None),
+                #"updated_at": entity.get("created_at", None),
                 "revoked": entity.get("revoked", None),
             }
-
+            _document["threat"]["indicator"]["modified_at"] = entity.get("created_at", None)
 
         if entity.get("killChainPhases", None):
             phases = []
@@ -509,14 +512,15 @@ class IntelManager(object):
                         ),
                     }
                 )
+
             if self.elastic_version == "7":
-                _document[self.threatintel_key]["opencti"]["killchain_phases"] = phases
+                _document["threatintel"]["opencti"]["killchain_phases"] = phases
             else:
                 _document["opencti"]["killchain_phases"] = phases
 
         if OpenCTIConnectorHelper.get_attribute_in_mitre_extension("platforms", entity):
             if self.elastic_version == "7":
-                _document[self.threatintel_key]["opencti"]["mitre"] = {
+                _document["threatintel"]["opencti"]["mitre"] = {
                     "platforms": OpenCTIConnectorHelper.get_attribute_in_mitre_extension(
                         "platforms", entity
                     )
@@ -533,9 +537,12 @@ class IntelManager(object):
             if _indicator == {}:
                 return {}
 
-            _document[self.threatintel_key]["stix"] = {"id": entity.get("standard_id")}
-            _document[self.threatintel_key]["indicator"] = _indicator
-
+            if self.elastic_version == "7":
+                _document["threatintel"]["stix"] = {"id": entity.get("standard_id")}
+                _document["threatintel"]["indicator"] = _indicator
+            else:
+                _document["opencti"]["indicator"]["stix"] = {"id": entity.get("standard_id")}
+                _document["opencti"]["indicator"] = _indicator
         else:
             logger.warning(
                 f"Unsupported indicator pattern type: {entity['pattern_type']}. Skipping."
